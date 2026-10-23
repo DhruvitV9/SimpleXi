@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Indian F&O Market Intelligence: Pre-market</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#0d1218; --panel:#131a22; --panel2:#18212b; --line:#243141; --line2:#1b2632;
+  --text:#d9e1ea; --muted:#8393a6; --faint:#5b6b7e;
+  --bull:#2fbf8e; --bull-bg:rgba(47,191,142,.13);
+  --bear:#ef5b5b; --bear-bg:rgba(239,91,91,.13);
+  --amber:#e6a936; --amber-bg:rgba(230,169,54,.14);
+  --blue:#5aa2e0; --blue-bg:rgba(90,162,224,.14);
+  --shadow:0 12px 40px rgba(0,0,0,.5);
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#eef1f5; --panel:#ffffff; --panel2:#f4f6f9; --line:#d3dbe5; --line2:#e4e9f0;
+    --text:#1a2430; --muted:#5a6a7d; --faint:#8a97a8;
+    --bull:#12855f; --bull-bg:rgba(18,133,95,.11);
+    --bear:#c93636; --bear-bg:rgba(201,54,54,.10);
+    --amber:#a86e00; --amber-bg:rgba(168,110,0,.12);
+    --blue:#1f6db3; --blue-bg:rgba(31,109,179,.10);
+    --shadow:0 12px 40px rgba(20,30,50,.18);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d1218; --panel:#131a22; --panel2:#18212b; --line:#243141; --line2:#1b2632;
+  --text:#d9e1ea; --muted:#8393a6; --faint:#5b6b7e;
+  --bull:#2fbf8e; --bull-bg:rgba(47,191,142,.13);
+  --bear:#ef5b5b; --bear-bg:rgba(239,91,91,.13);
+  --amber:#e6a936; --amber-bg:rgba(230,169,54,.14);
+  --blue:#5aa2e0; --blue-bg:rgba(90,162,224,.14);
+}
+:root[data-theme="light"]{
+  --bg:#eef1f5; --panel:#ffffff; --panel2:#f4f6f9; --line:#d3dbe5; --line2:#e4e9f0;
+  --text:#1a2430; --muted:#5a6a7d; --faint:#8a97a8;
+  --bull:#12855f; --bull-bg:rgba(18,133,95,.11);
+  --bear:#c93636; --bear-bg:rgba(201,54,54,.10);
+  --amber:#a86e00; --amber-bg:rgba(168,110,0,.12);
+  --blue:#1f6db3; --blue-bg:rgba(31,109,179,.10);
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:400 13px/1.45 var(--sans);-webkit-font-smoothing:antialiased;min-height:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:3px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.bull{color:var(--bull)} .bear{color:var(--bear)} .amber{color:var(--amber)} .muted{color:var(--muted)}
+.na{color:var(--faint)}
+
+/* header */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--panel);border-bottom:1px solid var(--line);
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:10px 18px}
+.brand{font-weight:600;font-size:15px;letter-spacing:.01em;margin-right:auto}
+.brand small{display:block;font-weight:400;font-size:11.5px;color:var(--muted);letter-spacing:0}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel2);border-radius:4px;padding:3px 9px;font-size:12px;white-space:nowrap}
+.chip .dot{width:7px;height:7px;border-radius:50%;background:var(--faint)}
+.chip.ok{color:var(--bull);border-color:var(--bull)} .chip.ok .dot{background:var(--bull)}
+.chip.warn{color:var(--amber);border-color:var(--amber);background:var(--amber-bg)} .chip.warn .dot{background:var(--amber)}
+.chip.info{color:var(--blue);border-color:var(--blue);background:var(--blue-bg)} .chip.info .dot{background:var(--blue)}
+.chip.off{color:var(--muted)}
+.btn{border:1px solid var(--line);background:var(--panel2);border-radius:4px;padding:5px 11px;font-size:12.5px}
+.btn:hover{border-color:var(--blue)}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#06121d;font-weight:600}
+.btn.small{padding:2px 8px;font-size:12px}
+
+.banner{margin:12px 18px 0;padding:8px 12px;border:1px solid var(--amber);background:var(--amber-bg);border-radius:4px;color:var(--text);font-size:12.5px}
+.banner b{color:var(--amber)}
+
+/* index strip */
+.indices{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;margin:12px 18px 0;background:var(--line);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.idx{background:var(--panel);padding:9px 12px}
+.idx .n{color:var(--muted);font-size:12px}
+.idx .v{font:500 16px var(--mono);margin-top:1px}
+.idx .g{font:500 12px var(--mono)}
+.idx .b{font-size:11.5px;color:var(--muted)}
+
+/* layout */
+.grid{display:grid;grid-template-columns:minmax(330px,390px) 1fr;gap:12px;padding:12px 18px 24px;align-items:start}
+@media (max-width:1050px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:4px;min-width:0}
+.ph{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.ph h2{margin:0;font-size:13px;font-weight:600}
+.ph .sp{margin-left:auto}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:3px 10px;font-size:12px;color:var(--muted);border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--blue-bg);color:var(--text)}
+.seg button.g[aria-pressed="true"]{background:var(--bull-bg);color:var(--bull)}
+.seg button.r[aria-pressed="true"]{background:var(--bear-bg);color:var(--bear)}
+
+/* sector ladder */
+.sec{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line2);background:transparent;padding:9px 12px 10px;border-left:3px solid transparent}
+.sec:hover{background:var(--panel2)}
+.sec[aria-pressed="true"]{background:var(--panel2);border-left-color:var(--blue)}
+.sec .r1{display:flex;align-items:baseline;gap:8px}
+.sec .nm{font-weight:500}
+.sec .cls{font-size:11.5px;color:var(--muted)}
+.sec .sc{margin-left:auto;font:600 15px var(--mono)}
+.gauge{position:relative;height:8px;margin:6px 0 5px;background:var(--line2);border-radius:2px}
+.gauge .mid{position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--faint)}
+.gauge .fill{position:absolute;top:0;bottom:0;border-radius:2px}
+.gauge .fill.b{background:var(--bull);left:50%}
+.gauge .fill.s{background:var(--bear);right:50%}
+.sec .r3{display:flex;gap:14px;font-size:11.5px;color:var(--muted);flex-wrap:wrap}
+.sec .r3 span b{font:500 11.5px var(--mono);color:var(--text)}
+.group-h{padding:6px 12px;font-size:12px;color:var(--muted);background:var(--panel2);border-bottom:1px solid var(--line2);display:flex;gap:8px}
+
+/* table */
+.filters{display:flex;gap:10px 14px;align-items:center;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--line2)}
+.filters label{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px}
+.filters input[type=search]{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:4px 8px;width:150px}
+.filters input[type=range]{width:110px}
+.tw{overflow:auto;max-height:calc(100vh - 250px);min-height:200px}
+table{border-collapse:collapse;width:100%;min-width:900px}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line2);text-align:right;white-space:nowrap}
+th:nth-child(-n+4),td:nth-child(-n+4){text-align:left}
+thead th{position:sticky;top:0;background:var(--panel2);z-index:2;font-weight:500;color:var(--muted);font-size:12px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none}
+thead th[aria-sort="ascending"]::after{content:" \25B2";font-size:9px}
+thead th[aria-sort="descending"]::after{content:" \25BC";font-size:9px}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--panel2)}
+td.sym{font-weight:600}
+.star{border:0;background:transparent;color:var(--faint);padding:0 4px;font-size:14px}
+.star[aria-pressed="true"]{color:var(--amber)}
+.tag{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:3px;border:1px solid var(--line)}
+.tag.bull{background:var(--bull-bg);border-color:transparent} .tag.bear{background:var(--bear-bg);border-color:transparent}
+.tag.neu{color:var(--muted)}
+.scorecell{display:inline-flex;align-items:center;gap:8px;justify-content:flex-end}
+.sbar{width:54px;height:6px;background:var(--line2);border-radius:2px;overflow:hidden}
+.sbar i{display:block;height:100%}
+.empty{padding:28px 14px;color:var(--muted);text-align:center}
+
+/* drawer + modal */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:40;display:none}
+.scrim.on{display:block}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(470px,100vw);background:var(--panel);border-left:1px solid var(--line);z-index:50;
+  transform:translateX(100%);transition:transform .16s ease-out;overflow:auto;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+.drawer.on{transform:none}
+@media (prefers-reduced-motion:reduce){.drawer{transition:none}}
+.dh{display:flex;align-items:flex-start;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.dh h3{margin:0;font-size:18px}
+.dh .x{margin-left:auto}
+.sect{padding:12px 16px;border-bottom:1px solid var(--line2)}
+.sect h4{margin:0 0 8px;font-size:12.5px;font-weight:600}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px}
+.kv div{display:flex;justify-content:space-between;gap:8px}
+.kv span:first-child{color:var(--muted)}
+.bd{width:100%;border-collapse:collapse}
+.bd td{padding:5px 0;border-bottom:1px solid var(--line2);text-align:left;min-width:0;white-space:normal}
+.bd td:last-child{text-align:right;white-space:nowrap}
+.bd .ic{width:20px}
+.bd small{display:block;color:var(--muted);font-size:11.5px}
+.total td{border-bottom:0;font-weight:600;padding-top:8px}
+.note{color:var(--muted);font-size:12px}
+
+.modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(680px,calc(100vw - 24px));max-height:calc(100vh - 40px);overflow:auto;
+  background:var(--panel);border:1px solid var(--line);border-radius:6px;box-shadow:var(--shadow);z-index:60;display:none}
+.modal.on{display:block}
+.modal .mh{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel)}
+.modal .mh h3{margin:0;font-size:14px}
+.modal .mh .x{margin-left:auto}
+.modal .mb{padding:14px 16px}
+.modal textarea{width:100%;min-height:150px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:8px;font:12px/1.4 var(--mono)}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 18px}
+.form label{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.form input{width:78px;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:3px 6px;text-align:right;font:12.5px var(--mono)}
+.mb h4{margin:16px 0 8px;font-size:12.5px}
+.mb h4:first-child{margin-top:0}
+pre{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:10px;overflow:auto;font:11.5px/1.45 var(--mono);margin:6px 0}
+.err{color:var(--bear);margin-top:8px;min-height:1em}
+footer{padding:0 18px 22px;color:var(--muted);font-size:12px;max-width:1100px}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">Indian F&amp;O Market Intelligence<small>Pre-market sector and stock scoring</small></div>
+  <span class="chip" id="phase"><span class="dot"></span><span id="phaseTxt">Market</span></span>
+  <span class="chip mono" id="clock">--:--:-- IST</span>
+  <span class="chip warn" id="dataBadge"><span class="dot"></span><span id="dataTxt">Sample data</span></span>
+  <span class="chip off" id="feed"><span class="dot"></span><span id="feedTxt">Feed: not connected</span></span>
+  <button class="btn primary" id="btnLogin">Upstox login</button>
+  <button class="btn" id="btnRefresh">Refresh</button>
+  <button class="btn" id="btnLoad">Load data</button>
+  <button class="btn" id="btnSet">Scoring settings</button>
+</header>
+
+<div class="banner" id="banner"></div>
+
+<section class="indices" id="indices" aria-label="Index pre-open summary"></section>
+
+<main class="grid">
+  <section class="panel" aria-labelledby="secH">
+    <div class="ph">
+      <h2 id="secH">Sector strength</h2>
+      <span class="sp seg" role="group" aria-label="Sector filter">
+        <button data-sf="ALL" aria-pressed="true">All</button>
+        <button data-sf="BULL" class="g" aria-pressed="false">Bullish</button>
+        <button data-sf="BEAR" class="r" aria-pressed="false">Bearish</button>
+      </span>
+    </div>
+    <div id="sectors"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="stkH">
+    <div class="ph">
+      <h2 id="stkH">Stocks</h2>
+      <span class="muted" id="stkSub"></span>
+      <button class="btn small sp" id="btnClearSec" hidden>Show all sectors</button>
+    </div>
+    <div class="filters">
+      <span class="seg" role="group" aria-label="Direction">
+        <button data-df="ALL" aria-pressed="true">All</button>
+        <button data-df="BULLISH" class="g" aria-pressed="false">Bullish</button>
+        <button data-df="BEARISH" class="r" aria-pressed="false">Bearish</button>
+      </span>
+      <label>Min score <input type="range" id="minScore" min="0" max="100" step="5" value="0"><span class="mono" id="minScoreV">0</span></label>
+      <label><input type="checkbox" id="favOnly"> Favorites only</label>
+      <input type="search" id="q" placeholder="Search symbol" aria-label="Search symbol">
+    </div>
+    <div class="tw"><table id="tbl"></table></div>
+  </section>
+</main>
+
+<footer>
+  Scores are algorithmic screening output for research, not trade recommendations, and do not guarantee any outcome.
+  Gap is measured from previous close to the indicative pre-open price. Open interest change and buildup describe the previous session,
+  since pre-market open interest is not fabricated; missing fields show N/A and are left out of the score rather than guessed (the Upstox feed gives no pre-open volume history, so Vol ratio is N/A there).
+  The holiday calendar is not loaded, so the market phase shown assumes every weekday is a trading day.
+</footer>
+
+<div class="scrim" id="scrim"></div>
+
+<aside class="drawer" id="drawer" aria-label="Stock detail" aria-hidden="true"></aside>
+
+<div class="modal" id="mLoad" role="dialog" aria-modal="true" aria-labelledby="mLoadH">
+  <div class="mh"><h3 id="mLoadH">Load pre-market data</h3><button class="btn small x" data-close>Close</button></div>
+  <div class="mb">
+    <p class="note" style="margin-top:0">Paste JSON or CSV from your backend or a data export, or choose a file. The page scores whatever you load; it never invents missing fields.</p>
+    <textarea id="taData" placeholder="Paste JSON or CSV here" aria-label="Pre-market data"></textarea>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">
+      <input type="file" id="file" accept=".json,.csv,.txt" aria-label="Choose data file">
+      <button class="btn primary" id="btnApply">Score this data</button>
+      <button class="btn" id="btnSample">Use sample data</button>
+    </div>
+    <div class="err" id="loadErr" role="alert"></div>
+    <h4>Expected fields</h4>
+    <p class="note">Required: symbol, sector, prev_close. Everything else is optional; leave it empty (or omit it) when your source does not provide it.</p>
+    <pre>{
+  "as_of": "2026-09-30T09:07:00+05:30",
+  "source": "your backend / Upstox export",
+  "indices": [
+    {"name": "NIFTY 50", "prev_close": 24800.5, "price": 24862.1}
+  ],
+  "stocks": [
+    {"symbol": "HDFCBANK", "sector": "BANKING",
+     "prev_close": 1820.4, "pre_price": 1834.0,
+     "pre_volume": 152000, "avg_pre_volume": 98000,
+     "prev_change_pct": 1.1, "prev_oi_change_pct": 3.4,
+     "ema20": 1805.2, "ema50": 1790.7}
+  ]
+}</pre>
+    <p class="note">CSV uses the same stock field names as its header row. Index rows are only available in JSON; without an index, relative strength shows N/A.</p>
+  </div>
+</div>
+
+<div class="modal" id="mSet" role="dialog" aria-modal="true" aria-labelledby="mSetH">
+  <div class="mh"><h3 id="mSetH">Scoring settings</h3><button class="btn small x" data-close>Close</button></div>
+  <div class="mb">
+    <p class="note" style="margin-top:0">Weights are relative: each score is rescaled to 0 to 100 over the components that have data, so they do not need to add up to 100. Changes apply immediately and are saved in this browser.</p>
+    <h4>Stock score weights</h4><div class="form" id="fStock"></div>
+    <h4>Sector score weights</h4><div class="form" id="fSector"></div>
+    <h4>Thresholds</h4><div class="form" id="fThr"></div>
+    <h4>Sector classification bands (score at or above)</h4><div class="form" id="fBands"></div>
+    <div style="margin-top:14px"><button class="btn" id="btnReset">Reset to defaults</button></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ---------- configuration ---------- */
+const DEFAULT_CFG = {
+  wStock:  {gap:25, volume:15, oi:20, trend:15, sector:15, rs:10},
+  wSector: {momentum:25, breadth:20, volume:15, rs:15, oi:15, trend:10},
+  thr: {gapCap:3, neutralBand:0.3, volCap:3, priceMin:0.5, oiMin:2, qualify:60},
+  bands: {strongBull:75, bull:60, bear:40, strongBear:25}
+};
+const LABELS = {
+  wStock:{gap:"Gap strength",volume:"Pre-open volume",oi:"Prior-day OI buildup",trend:"EMA trend",sector:"Sector strength",rs:"Relative strength"},
+  wSector:{momentum:"Momentum (avg gap)",breadth:"Breadth",volume:"Volume strength",rs:"Relative strength",oi:"OI confirmation",trend:"Trend strength"},
+  thr:{gapCap:"Gap treated as full strength (%)",neutralBand:"Neutral gap band (%)",volCap:"Volume ratio for full credit (x)",priceMin:"Buildup min price change (%)",oiMin:"Buildup min OI change (%)",qualify:"Qualifying score"},
+  bands:{strongBull:"Strong bullish",bull:"Bullish",bear:"Bearish (below neutral)",strongBear:"Strong bearish"}
+};
+const clone = o => JSON.parse(JSON.stringify(o));
+let cfg = clone(DEFAULT_CFG);
+try{ const s = localStorage.getItem("fno_cfg_v1"); if(s){ const p = JSON.parse(s); for(const k of Object.keys(DEFAULT_CFG)) if(p[k]) Object.assign(cfg[k], p[k]); } }catch(e){}
+function saveCfg(){ try{ localStorage.setItem("fno_cfg_v1", JSON.stringify(cfg)); }catch(e){} }
+
+/* ---------- sample data (synthetic, clearly labelled) ---------- */
+const SECTOR_MAP = {
+  "BANKING":["HDFCBANK","ICICIBANK","SBIN","AXISBANK","KOTAKBANK","INDUSINDBK","BANKBARODA","PNB","FEDERALBNK","IDFCFIRSTB"],
+  "FINANCIAL SERVICES":["BAJFINANCE","BAJAJFINSV","CHOLAFIN","SBILIFE","HDFCLIFE","MUTHOOTFIN"],
+  "IT":["TCS","INFY","WIPRO","HCLTECH","TECHM","LTIM","COFORGE","PERSISTENT"],
+  "PHARMA":["SUNPHARMA","CIPLA","DRREDDY","DIVISLAB","LUPIN","AUROPHARMA"],
+  "AUTO":["MARUTI","M&M","ASHOKLEY","BAJAJ-AUTO","EICHERMOT","HEROMOTOCO","TVSMOTOR"],
+  "FMCG":["HINDUNILVR","ITC","NESTLEIND","BRITANNIA","DABUR","TATACONSUM"],
+  "METALS":["TATASTEEL","JSWSTEEL","HINDALCO","VEDL","JINDALSTEL","NMDC"],
+  "ENERGY":["RELIANCE","NTPC","POWERGRID","TATAPOWER"],
+  "OIL & GAS":["ONGC","BPCL","IOC","GAIL"],
+  "REALTY":["DLF","GODREJPROP","OBEROIRLTY","PRESTIGE"],
+  "TELECOM":["BHARTIARTL","IDEA"]
+};
+const TONE = {"BANKING":.85,"FINANCIAL SERVICES":.45,"IT":.7,"PHARMA":.1,"AUTO":.5,"FMCG":-.05,"METALS":-.9,"ENERGY":.2,"OIL & GAS":-.35,"REALTY":-.7,"TELECOM":-.25};
+function rng(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; let t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return((t^t>>>14)>>>0)/4294967296; }; }
+function makeSample(){
+  const r = rng(20260930), n = () => (r()+r()+r()-1.5)/0.75;
+  const stocks = []; let sumGap = 0, cnt = 0;
+  for(const [sec, syms] of Object.entries(SECTOR_MAP)){
+    for(const s of syms){
+      const base = Math.round(80 + r()*3200);
+      const gap = TONE[sec]*1.5 + n()*0.85;
+      const prev = base, pre = +(prev*(1+gap/100)).toFixed(2);
+      const ratio = Math.max(0.25, 1 + Math.abs(gap)*0.45 + n()*0.5);
+      const avgPre = Math.round(20000 + r()*180000);
+      const pchg = TONE[sec]*0.9 + n()*1.1;
+      const ochg = (pchg>0 ? 1 : -1)*(r()<.7?1:-1)*(1.2 + r()*5) + n();
+      const e20 = +(prev*(1 - TONE[sec]*0.012 + n()*0.008)).toFixed(2);
+      const e50 = +(e20*(1 - TONE[sec]*0.012 + n()*0.006)).toFixed(2);
+      const o = {symbol:s, sector:sec, prev_close:prev, pre_price:pre,
+        pre_volume: r()<.06 ? null : Math.round(avgPre*ratio), avg_pre_volume: avgPre,
+        prev_change_pct:+pchg.toFixed(2), prev_oi_change_pct: r()<.08 ? null : +ochg.toFixed(2),
+        ema20: e20, ema50: r()<.05 ? null : e50};
+      stocks.push(o); sumGap += gap; cnt++;
+    }
+  }
+  const mk = (name, base, mult) => ({name, prev_close:base, price:+(base*(1+ (sumGap/cnt)*mult/100)).toFixed(2)});
+  const idx = [mk("NIFTY 50",24800,0.55), mk("BANK NIFTY",53400,0.8), mk("FINNIFTY",26100,0.6),
+               {name:"INDIA VIX", prev_close:13.4, price:13.1}];
+  return {as_of:"Synthetic sample", source:"Synthetic sample", sample:true, indices:idx, stocks};
+}
+
+/* ---------- scoring engine (pure functions) ---------- */
+const clamp = (x,a,b) => Math.max(a, Math.min(b, x));
+const isNum = x => typeof x === "number" && isFinite(x);
+function classifyBuildup(pchg, ochg, t){
+  if(!isNum(pchg) || !isNum(ochg)) return null;
+  if(pchg >= t.priceMin && ochg >= t.oiMin) return "LONG BUILDUP";
+  if(pchg <= -t.priceMin && ochg >= t.oiMin) return "SHORT BUILDUP";
+  if(pchg >= t.priceMin && ochg <= -t.oiMin) return "SHORT COVERING";
+  if(pchg <= -t.priceMin && ochg <= -t.oiMin) return "LONG UNWINDING";
+  return "NONE";
+}
+const BUILD_A = {"LONG BUILDUP":1,"SHORT COVERING":.5,"NONE":0,"LONG UNWINDING":-.5,"SHORT BUILDUP":-1};
+function trendValue(close, e20, e50){
+  const parts = [];
+  if(isNum(e20)) parts.push(close > e20 ? 1 : -1);
+  if(isNum(e20) && isNum(e50)) parts.push(e20 > e50 ? 1 : -1);
+  if(!parts.length) return null;
+  return parts.reduce((a,b)=>a+b,0)/parts.length;
+}
+function sectorBand(score, b){
+  if(score >= b.strongBull) return {k:"Strong bullish", side:"BULL"};
+  if(score >= b.bull) return {k:"Bullish", side:"BULL"};
+  if(score >= b.bear) return {k:"Neutral", side:"NEUT"};
+  if(score >= b.strongBear) return {k:"Bearish", side:"BEAR"};
+  return {k:"Strong bearish", side:"BEAR"};
+}
+function weighted(items){ // items: [{w, v|null}] -> {score, coverage}
+  let num=0, den=0, tot=0;
+  for(const it of items){ tot += it.w; if(it.v !== null){ num += it.w*it.v; den += it.w; } }
+  return {score: den>0 ? num/den : null, coverage: tot>0 ? den/tot : 0};
+}
+function compute(data, c){
+  const t = c.thr;
+  // index reference for relative strength
+  let idxGap = null, idxName = null;
+  for(const ix of (data.indices||[])){
+    if(/vix/i.test(ix.name)) continue;
+    if(isNum(ix.prev_close) && isNum(ix.price) && ix.prev_close>0){ idxGap = (ix.price-ix.prev_close)/ix.prev_close*100; idxName = ix.name; if(/^nifty( 50)?$/i.test(ix.name)) break; }
+  }
+  // pass 1: raw stock metrics
+  const rows = data.stocks.map(s => {
+    const gap = isNum(s.pre_price) && s.prev_close>0 ? (s.pre_price-s.prev_close)/s.prev_close*100 : null;
+    const vr = isNum(s.pre_volume) && isNum(s.avg_pre_volume) && s.avg_pre_volume>0 ? s.pre_volume/s.avg_pre_volume : null;
+    const bu = classifyBuildup(s.prev_change_pct, s.prev_oi_change_pct, t);
+    const tv = trendValue(s.prev_close, s.ema20, s.ema50);
+    return {...s, gap, vr, buildup:bu, tv};
+  });
+  // sectors
+  const groups = {};
+  for(const r of rows){ (groups[r.sector] = groups[r.sector] || []).push(r); }
+  const sectors = Object.entries(groups).map(([name, list]) => {
+    const g = list.filter(r => r.gap !== null);
+    const avg = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : null;
+    const avgGap = avg(g.map(r=>r.gap));
+    const adv = g.filter(r=>r.gap>=t.neutralBand).length, dec = g.filter(r=>r.gap<=-t.neutralBand).length;
+    const vrs = g.filter(r=>r.vr!==null).map(r=>r.vr);
+    const avgVr = avg(vrs);
+    const oiA = list.filter(r=>r.buildup).map(r=>BUILD_A[r.buildup]);
+    const tvs = list.filter(r=>r.tv!==null).map(r=>r.tv);
+    const comp = {
+      momentum: avgGap===null ? null : 50+50*clamp(avgGap/t.gapCap,-1,1),
+      breadth: g.length ? 50+50*(adv-dec)/g.length : null,
+      volume: (avgVr===null||avgGap===null) ? null : 50+50*Math.sign(avgGap)*clamp((avgVr-1)/Math.max(t.volCap-1,.01),0,1),
+      rs: (avgGap===null||idxGap===null) ? null : 50+50*clamp((avgGap-idxGap)/t.gapCap,-1,1),
+      oi: oiA.length ? 50+50*avg(oiA) : null,
+      trend: tvs.length ? 50+50*avg(tvs) : null
+    };
+    const res = weighted(Object.keys(comp).map(k => ({w:c.wSector[k]||0, v:comp[k]})));
+    const score = res.score;
+    const band = score===null ? {k:"N/A", side:"NEUT"} : sectorBand(score, c.bands);
+    return {name, list, n:list.length, nScored:g.length, avgGap, adv, dec, avgVr, comp, score, coverage:res.coverage, band, idxGap};
+  });
+  const secMap = Object.fromEntries(sectors.map(s=>[s.name,s]));
+  // pass 2: stock scores
+  const stocks = rows.map(r => {
+    const sec = secMap[r.sector];
+    const comps = [];
+    const add = (key, a, detail) => comps.push({key, label:LABELS.wStock[key], w:c.wStock[key]||0, a, detail});
+    if(r.gap === null){
+      return {...r, score:null, bias:"N/A", comps:[], coverage:0, sec, bull:null, bear:null};
+    }
+    const dead = Math.abs(r.gap) < t.neutralBand;
+    add("gap", dead ? 0 : clamp(r.gap/t.gapCap,-1,1), `Gap ${fmtS(r.gap)}% vs full strength at ${t.gapCap}%`);
+    add("volume", r.vr===null ? null : (dead?0:Math.sign(r.gap)*clamp((r.vr-1)/Math.max(t.volCap-1,.01),0,1)),
+        r.vr===null ? "Pre-open volume or its average not provided" : `Pre-open volume ${r.vr.toFixed(2)}x its average`);
+    add("oi", r.buildup===null ? null : BUILD_A[r.buildup],
+        r.buildup===null ? "Prior-day price or OI change not provided" : `${r.buildup.toLowerCase()} yesterday (price ${fmtS(r.prev_change_pct)}%, OI ${fmtS(r.prev_oi_change_pct)}%)`);
+    add("trend", r.tv, r.tv===null ? "EMA levels not provided" : `Prev close vs EMA20${isNum(r.ema50)?" and EMA20 vs EMA50":""}`);
+    add("sector", sec && sec.score!==null ? clamp((sec.score-50)/50,-1,1) : null,
+        sec && sec.score!==null ? `${r.sector} sector score ${sec.score.toFixed(0)}` : "Sector score unavailable");
+    add("rs", idxGap===null ? null : clamp((r.gap-idxGap)/t.gapCap,-1,1),
+        idxGap===null ? "No index supplied" : `Gap ${fmtS(r.gap)}% vs ${idxName} ${fmtS(idxGap)}%`);
+    const avail = comps.filter(x=>x.a!==null);
+    const den = avail.reduce((s,x)=>s+x.w,0), tot = comps.reduce((s,x)=>s+x.w,0);
+    const bullPts = avail.reduce((s,x)=>s+x.w*Math.max(x.a,0),0), bearPts = avail.reduce((s,x)=>s+x.w*Math.max(-x.a,0),0);
+    const bull = den>0 ? 100*bullPts/den : null, bear = den>0 ? 100*bearPts/den : null;
+    let bias = "NEUTRAL";
+    if(bull!==null && !dead) bias = bull>=bear ? "BULLISH" : "BEARISH";
+    const score = bull===null ? null : Math.max(bull,bear);
+    return {...r, comps, den, bull, bear, score, bias, coverage: tot>0?den/tot:0, sec};
+  });
+  return {stocks, sectors, idxGap, idxName};
+}
+
+/* ---------- formatting ---------- */
+const fmtS = (x,d=2) => isNum(x) ? (x>0?"+":"")+x.toFixed(d) : "N/A";
+const fmtN = (x,d=2) => isNum(x) ? x.toLocaleString("en-IN",{minimumFractionDigits:d,maximumFractionDigits:d}) : "N/A";
+const fmtV = x => !isNum(x) ? "N/A" : x>=1e7 ? (x/1e7).toFixed(2)+" Cr" : x>=1e5 ? (x/1e5).toFixed(2)+" L" : x.toLocaleString("en-IN");
+const cls = x => !isNum(x) ? "na" : x>0 ? "bull" : x<0 ? "bear" : "";
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch])); }
+
+/* ---------- state ---------- */
+let data = makeSample();
+let R = compute(data, cfg);
+const S = {sec:"ALL", sf:"ALL", df:"ALL", min:0, q:"", favOnly:false, sort:{k:"score", d:-1}, open:null};
+let favs = new Set();
+try{ favs = new Set(JSON.parse(localStorage.getItem("fno_favs")||"[]")); }catch(e){}
+const saveFavs = () => { try{ localStorage.setItem("fno_favs", JSON.stringify([...favs])); }catch(e){} };
+
+/* ---------- render ---------- */
+const $ = s => document.querySelector(s);
+function renderBadge(){
+  const b = $("#dataBadge"), t = $("#dataTxt");
+  if(data.sample){ b.className="chip warn"; t.textContent="Sample data (synthetic)"; }
+  else { b.className="chip info"; t.textContent="Imported data, as of "+(data.as_of||"unknown time"); }
+  $("#banner").innerHTML = data.sample
+    ? "<b>These numbers are synthetic.</b> The tickers are real but every price, volume and open-interest value on this screen is generated for layout and scoring demonstration. Use Load data to score your own pre-market export."
+    : "Scoring imported data"+(data.source?" from <b>"+esc(data.source)+"</b>":"")+". Server data refreshes every 60 seconds; for manual imports, freshness is whatever the source timestamp says.";
+}
+function renderIndices(){
+  const el = $("#indices");
+  if(!data.indices || !data.indices.length){ el.innerHTML = `<div class="idx"><div class="n">Indices</div><div class="g na">N/A: none supplied</div></div>`; return; }
+  el.innerHTML = data.indices.map(ix => {
+    const g = isNum(ix.prev_close)&&isNum(ix.price)&&ix.prev_close>0 ? (ix.price-ix.prev_close)/ix.prev_close*100 : null;
+    const vix = /vix/i.test(ix.name);
+    const lean = g===null ? "N/A" : vix ? (g>0?"Volatility rising":"Volatility easing") : Math.abs(g)<0.1?"Flat":g>0?"Pre-open bullish":"Pre-open bearish";
+    return `<div class="idx"><div class="n">${esc(ix.name)}</div><div class="v">${fmtN(ix.price)}</div>
+      <div class="g ${vix?(g>0?"amber":""):cls(g)}">${fmtS(g)}%</div><div class="b">${lean}</div></div>`;
+  }).join("");
+}
+function renderSectors(){
+  const list = R.sectors.filter(s=>s.score!==null).sort((a,b)=>b.score-a.score);
+  const shown = list.filter(s => S.sf==="ALL" || s.band.side===S.sf);
+  const html = [];
+  const card = s => {
+    const d = s.score-50, side = d>=0 ? "b" : "s", w = Math.abs(d);
+    const colr = s.band.side==="BULL"?"bull":s.band.side==="BEAR"?"bear":"";
+    const top = s.list.filter(x=>x.score!==null).sort((a,b)=> (s.band.side==="BEAR" ? (b.bear-a.bear) : (b.bull-a.bull)))[0];
+    const q = s.list.filter(x=>x.score!==null && x.score>=cfg.thr.qualify && ((s.band.side==="BEAR")?x.bias==="BEARISH":(s.band.side==="BULL")?x.bias==="BULLISH":true)).length;
+    return `<button class="sec" data-sec="${esc(s.name)}" aria-pressed="${S.sec===s.name}">
+      <div class="r1"><span class="nm">${esc(s.name)}</span><span class="cls ${colr}">${s.band.k}</span><span class="sc ${colr}">${s.score.toFixed(0)}</span></div>
+      <div class="gauge" aria-hidden="true"><i class="mid"></i><i class="fill ${side}" style="width:${w}%"></i></div>
+      <div class="r3"><span>Avg gap <b class="${cls(s.avgGap)}">${fmtS(s.avgGap)}%</b></span>
+        <span>Up/down <b>${s.adv}/${s.dec}</b> of ${s.nScored}</span>
+        <span>Vol <b>${s.avgVr===null?"N/A":s.avgVr.toFixed(2)+"x"}</b></span>
+        <span>Qualifying <b>${q}</b></span>
+        <span>Top <b>${top?esc(top.symbol):"N/A"}</b></span></div></button>`;
+  };
+  if(S.sf==="ALL"){
+    const bull = shown.filter(s=>s.band.side==="BULL"), neu = shown.filter(s=>s.band.side==="NEUT"), bear = shown.filter(s=>s.band.side==="BEAR");
+    if(bull.length) html.push(`<div class="group-h"><span class="bull">Bullish sectors</span><span>${bull.length}</span></div>`, ...bull.map(card));
+    if(neu.length) html.push(`<div class="group-h"><span>Neutral</span><span>${neu.length}</span></div>`, ...neu.map(card));
+    if(bear.length) html.push(`<div class="group-h"><span class="bear">Bearish sectors</span><span>${bear.length}</span></div>`, ...bear.reverse().map(card));
+  } else html.push(...(S.sf==="BEAR"?shown.reverse():shown).map(card));
+  const na = R.sectors.filter(s=>s.score===null);
+  if(na.length) html.push(`<div class="group-h"><span>No usable data</span><span>${na.map(s=>esc(s.name)).join(", ")}</span></div>`);
+  $("#sectors").innerHTML = html.length ? html.join("") : `<div class="empty">No sectors match this filter.</div>`;
+}
+const COLS = [
+  {k:"fav",t:"",s:false},{k:"rank",t:"#",s:false},{k:"symbol",t:"Stock"},{k:"sector",t:"Sector"},
+  {k:"prev_close",t:"Prev close"},{k:"pre_price",t:"Pre price"},{k:"gap",t:"Gap %"},{k:"vr",t:"Vol ratio"},
+  {k:"oi",t:"Prior OI Δ %"},{k:"buildup",t:"Prior-day buildup"},{k:"tv",t:"Trend"},{k:"sectorScore",t:"Sector score"},
+  {k:"bias",t:"Bias"},{k:"score",t:"Score"},{k:"coverage",t:"Data"}
+];
+function sortVal(r,k){
+  switch(k){
+    case "oi": return r.prev_oi_change_pct; case "sectorScore": return r.sec?r.sec.score:null;
+    case "symbol": case "sector": case "buildup": case "bias": return r[k]||"";
+    default: return r[k];
+  }
+}
+function visibleStocks(){
+  let a = R.stocks.slice();
+  if(S.sec!=="ALL") a = a.filter(r=>r.sector===S.sec);
+  if(S.df!=="ALL") a = a.filter(r=>r.bias===S.df);
+  if(S.min>0) a = a.filter(r=>r.score!==null && r.score>=S.min);
+  if(S.favOnly) a = a.filter(r=>favs.has(r.symbol));
+  if(S.q) a = a.filter(r=>r.symbol.toLowerCase().includes(S.q.toLowerCase()));
+  const {k,d} = S.sort;
+  a.sort((x,y)=>{
+    const p = sortVal(x,k), q = sortVal(y,k);
+    if(typeof p==="string" || typeof q==="string") return String(p).localeCompare(String(q))*d;
+    const pn = p===null||p===undefined, qn = q===null||q===undefined;
+    if(pn && qn) return 0; if(pn) return 1; if(qn) return -1;
+    return (p-q)*d;
+  });
+  return a;
+}
+function renderTable(){
+  const rows = visibleStocks();
+  $("#stkSub").textContent = (S.sec==="ALL" ? "All sectors" : S.sec)+" · "+rows.length+" stocks";
+  $("#btnClearSec").hidden = S.sec==="ALL";
+  const head = COLS.map(c => {
+    const aria = S.sort.k===c.k ? (S.sort.d>0?"ascending":"descending") : "none";
+    return `<th ${c.s===false?"":`data-sort="${c.k}" tabindex="0"`} aria-sort="${aria}" scope="col">${c.t}</th>`;
+  }).join("");
+  const body = rows.map((r,i) => {
+    const biasCls = r.bias==="BULLISH"?"bull":r.bias==="BEARISH"?"bear":"neu";
+    const bc = r.bias==="BULLISH"?"var(--bull)":r.bias==="BEARISH"?"var(--bear)":"var(--faint)";
+    const bu = r.buildup;
+    const buCls = bu==="LONG BUILDUP"||bu==="SHORT COVERING"?"bull":bu==="SHORT BUILDUP"||bu==="LONG UNWINDING"?"bear":"";
+    const tr = r.tv===null?"N/A":r.tv>0.5?"Up":r.tv<-0.5?"Down":"Mixed";
+    return `<tr data-sym="${esc(r.symbol)}" tabindex="0">
+      <td><button class="star" data-fav="${esc(r.symbol)}" aria-pressed="${favs.has(r.symbol)}" aria-label="Favorite ${esc(r.symbol)}">${favs.has(r.symbol)?"★":"☆"}</button></td>
+      <td class="mono muted">${i+1}</td><td class="sym">${esc(r.symbol)}</td><td class="muted">${esc(r.sector)}</td>
+      <td class="mono">${fmtN(r.prev_close)}</td><td class="mono">${fmtN(r.pre_price)}</td>
+      <td class="mono ${cls(r.gap)}">${fmtS(r.gap)}</td>
+      <td class="mono">${r.vr===null?'<span class="na">N/A</span>':r.vr.toFixed(2)+"x"}</td>
+      <td class="mono ${cls(r.prev_oi_change_pct)}">${isNum(r.prev_oi_change_pct)?fmtS(r.prev_oi_change_pct):'<span class="na">N/A</span>'}</td>
+      <td class="${buCls}">${bu===null?'<span class="na">N/A</span>':bu==="NONE"?'<span class="muted">None</span>':bu.charAt(0)+bu.slice(1).toLowerCase()}</td>
+      <td class="${r.tv===null?"na":r.tv>0.5?"bull":r.tv<-0.5?"bear":"muted"}">${tr}</td>
+      <td class="mono">${r.sec&&r.sec.score!==null?r.sec.score.toFixed(0):'<span class="na">N/A</span>'}</td>
+      <td style="text-align:right"><span class="tag ${biasCls}">${r.bias==="N/A"?"N/A":r.bias.charAt(0)+r.bias.slice(1).toLowerCase()}</span></td>
+      <td><span class="scorecell"><span class="sbar"><i style="width:${r.score===null?0:r.score}%;background:${bc}"></i></span><b class="mono" style="min-width:26px;text-align:right">${r.score===null?"N/A":r.score.toFixed(0)}</b></span></td>
+      <td class="mono ${r.coverage<1?"amber":"muted"}" title="Share of score weight backed by available data">${Math.round(r.coverage*100)}%</td></tr>`;
+  }).join("");
+  $("#tbl").innerHTML = `<thead><tr>${head}</tr></thead><tbody>${body || `<tr><td colspan="${COLS.length}" class="empty" style="text-align:center">No stocks match these filters.</td></tr>`}</tbody>`;
+}
+function renderAll(){ renderBadge(); renderIndices(); renderSectors(); renderTable(); if(S.open) renderDrawer(S.open); }
+
+/* ---------- drawer ---------- */
+function renderDrawer(sym){
+  const r = R.stocks.find(x=>x.symbol===sym); if(!r) return;
+  const dir = r.bias==="BEARISH" ? "bear" : "bull";
+  const den = r.den || 0;
+  const lines = r.comps.map(c => {
+    if(c.a===null) return `<tr><td class="ic na">–</td><td>${esc(c.label)}<small>${esc(c.detail)}</small></td><td class="na">N/A</td></tr>`;
+    const cred = dir==="bull" ? Math.max(c.a,0) : Math.max(-c.a,0);
+    const pts = den>0 ? c.w*cred/den*100 : 0;
+    const ok = pts>0.05;
+    return `<tr><td class="ic ${ok?"bull":"bear"}">${ok?"✓":"✗"}</td><td>${esc(c.label)}<small>${esc(c.detail)}</small></td><td class="mono">${pts.toFixed(1)}<span class="muted"> / ${(c.w/den*100).toFixed(1)}</span></td></tr>`;
+  }).join("");
+  const sec = r.sec;
+  const secRows = sec ? Object.keys(LABELS.wSector).map(k => `<div><span>${LABELS.wSector[k]}</span><span class="mono">${sec.comp[k]===null?"N/A":sec.comp[k].toFixed(0)}</span></div>`).join("") : "";
+  const biasCls = r.bias==="BULLISH"?"bull":r.bias==="BEARISH"?"bear":"muted";
+  $("#drawer").innerHTML = `
+    <div class="dh"><div><h3>${esc(r.symbol)}</h3><div class="muted">${esc(r.sector)}</div></div>
+      <div style="margin-left:14px"><div class="mono" style="font-size:22px;font-weight:600">${r.score===null?"N/A":r.score.toFixed(0)}</div><div class="${biasCls}">${r.bias==="N/A"?"Not scored":r.bias.charAt(0)+r.bias.slice(1).toLowerCase()}</div></div>
+      <button class="btn small x" id="dClose">Close</button></div>
+    <div class="sect"><h4>Pre-open snapshot</h4><div class="kv">
+      <div><span>Prev close</span><span class="mono">${fmtN(r.prev_close)}</span></div>
+      <div><span>Pre-open price</span><span class="mono">${fmtN(r.pre_price)}</span></div>
+      <div><span>Gap</span><span class="mono ${cls(r.gap)}">${fmtS(r.gap)}%</span></div>
+      <div><span>Pre-open volume</span><span class="mono">${fmtV(r.pre_volume)}</span></div>
+      <div><span>Volume ratio</span><span class="mono">${r.vr===null?"N/A":r.vr.toFixed(2)+"x"}</span></div>
+      <div><span>Prior-day OI change</span><span class="mono ${cls(r.prev_oi_change_pct)}">${isNum(r.prev_oi_change_pct)?fmtS(r.prev_oi_change_pct)+"%":"N/A"}</span></div>
+      <div><span>EMA20</span><span class="mono">${fmtN(r.ema20)}</span></div>
+      <div><span>EMA50</span><span class="mono">${fmtN(r.ema50)}</span></div></div></div>
+    <div class="sect"><h4>Why this score</h4>
+      ${r.comps.length ? `<table class="bd"><tbody>${lines}
+        <tr class="total"><td></td><td>Score (${r.bias==="BEARISH"?"bearish":"bullish"} reading)</td><td class="mono">${r.score.toFixed(1)}</td></tr></tbody></table>
+        <p class="note">Points earned / points available. Available points are rescaled over components with data (${Math.round(r.coverage*100)}% of configured weight). Bullish reading ${r.bull.toFixed(0)}, bearish reading ${r.bear.toFixed(0)}; the higher one is shown.</p>`
+       : `<p class="note">No pre-open price was supplied, so this stock is not scored.</p>`}</div>
+    ${sec && sec.score!==null ? `<div class="sect"><h4>${esc(sec.name)} sector: ${sec.score.toFixed(0)} (${sec.band.k.toLowerCase()})</h4><div class="kv">${secRows}</div>
+      <p class="note">Each sector component is 0 to 100 with 50 neutral. Sector data coverage ${Math.round(sec.coverage*100)}%.</p></div>` : ""}
+    <div class="sect"><p class="note">Algorithmic screening output for research. It is not a recommendation to trade.</p></div>`;
+  $("#dClose").onclick = closeAll;
+}
+function openDrawer(sym){ S.open = sym; renderDrawer(sym); $("#drawer").classList.add("on"); $("#drawer").setAttribute("aria-hidden","false"); $("#scrim").classList.add("on"); $("#dClose").focus(); }
+function closeAll(){ S.open=null; $("#drawer").classList.remove("on"); $("#drawer").setAttribute("aria-hidden","true"); document.querySelectorAll(".modal").forEach(m=>m.classList.remove("on")); $("#scrim").classList.remove("on"); }
+
+/* ---------- settings form ---------- */
+function buildSettings(){
+  const mk = (id, group, step) => {
+    $(id).innerHTML = Object.keys(LABELS[group]).map(k => `<label><span>${LABELS[group][k]}</span><input type="number" step="${step}" min="0" data-g="${group}" data-k="${k}" value="${cfg[group][k]}"></label>`).join("");
+  };
+  mk("#fStock","wStock",1); mk("#fSector","wSector",1); mk("#fThr","thr",0.1); mk("#fBands","bands",1);
+}
+function openModal(id){ $("#scrim").classList.add("on"); $(id).classList.add("on"); }
+
+/* ---------- data import ---------- */
+function parseCSV(text){
+  const lines = text.replace(/\r/g,"").split("\n").filter(l=>l.trim());
+  if(lines.length<2) throw new Error("CSV needs a header row and at least one data row.");
+  const head = lines[0].split(",").map(h=>h.trim().toLowerCase());
+  return lines.slice(1).map(l => { const c = l.split(","); const o = {}; head.forEach((h,i)=>{ o[h] = (c[i]||"").trim(); }); return o; });
+}
+function num(v){ if(v===null||v===undefined||v==="") return null; const n = Number(v); return isFinite(n) ? n : null; }
+function normalise(raw){
+  let obj;
+  const t = raw.trim();
+  if(!t) throw new Error("Nothing to load. Paste JSON or CSV, or choose a file.");
+  if(t[0]==="{"||t[0]==="[") { obj = JSON.parse(t); if(Array.isArray(obj)) obj = {stocks:obj}; }
+  else obj = {stocks: parseCSV(t)};
+  if(!Array.isArray(obj.stocks)) throw new Error('Expected a "stocks" list.');
+  let skipped = 0;
+  const stocks = [];
+  for(const s of obj.stocks){
+    const sym = String(s.symbol||"").trim().toUpperCase(), sec = String(s.sector||"").trim().toUpperCase(), pc = num(s.prev_close);
+    if(!sym || !sec || pc===null || pc<=0){ skipped++; continue; }
+    stocks.push({symbol:sym, sector:sec, prev_close:pc, pre_price:num(s.pre_price), pre_volume:num(s.pre_volume), avg_pre_volume:num(s.avg_pre_volume),
+      prev_change_pct:num(s.prev_change_pct), prev_oi_change_pct:num(s.prev_oi_change_pct), ema20:num(s.ema20), ema50:num(s.ema50)});
+  }
+  if(!stocks.length) throw new Error("No valid rows. Each stock needs symbol, sector and a positive prev_close.");
+  const indices = (obj.indices||[]).map(i=>({name:String(i.name||""), prev_close:num(i.prev_close), price:num(i.price)})).filter(i=>i.name);
+  return {data:{as_of:obj.as_of||"", source:obj.source||"", sample:false, indices, stocks}, skipped};
+}
+
+/* ---------- clock & market phase (Asia/Kolkata) ---------- */
+const istFmt = new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kolkata",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false,weekday:"short"});
+function tick(){
+  const parts = Object.fromEntries(istFmt.formatToParts(new Date()).map(p=>[p.type,p.value]));
+  const mins = (+parts.hour)*60 + (+parts.minute), wk = parts.weekday;
+  const weekend = wk==="Sat"||wk==="Sun";
+  let label="Market closed", c="chip off";
+  if(!weekend){
+    if(mins>=540 && mins<555){ label="Pre-market"; c="chip warn"; }
+    else if(mins>=555 && mins<930){ label="Market open"; c="chip ok"; }
+  } else label="Market closed (weekend)";
+  $("#phase").className = c; $("#phaseTxt").textContent = label;
+  $("#clock").textContent = `${parts.hour}:${parts.minute}:${parts.second} IST`;
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click", e => {
+  const t = e.target;
+  const fav = t.closest("[data-fav]");
+  if(fav){ e.stopPropagation(); const s = fav.dataset.fav; favs.has(s)?favs.delete(s):favs.add(s); saveFavs(); renderTable(); return; }
+  const sec = t.closest("[data-sec]");
+  if(sec){ S.sec = S.sec===sec.dataset.sec ? "ALL" : sec.dataset.sec; renderSectors(); renderTable(); return; }
+  const sf = t.closest("[data-sf]");
+  if(sf){ S.sf = sf.dataset.sf; document.querySelectorAll("[data-sf]").forEach(b=>b.setAttribute("aria-pressed", b===sf)); renderSectors(); return; }
+  const df = t.closest("[data-df]");
+  if(df){ S.df = df.dataset.df; document.querySelectorAll("[data-df]").forEach(b=>b.setAttribute("aria-pressed", b===df)); renderTable(); return; }
+  const th = t.closest("th[data-sort]");
+  if(th){ const k = th.dataset.sort; S.sort = S.sort.k===k ? {k, d:-S.sort.d} : {k, d:(k==="symbol"||k==="sector"||k==="bias"||k==="buildup")?1:-1}; renderTable(); return; }
+  const tr = t.closest("tbody tr[data-sym]");
+  if(tr){ openDrawer(tr.dataset.sym); return; }
+  if(t.closest("[data-close]") || t.id==="scrim") closeAll();
+});
+document.addEventListener("keydown", e => {
+  if(e.key==="Escape") closeAll();
+  if(e.key==="Enter"){ const th = e.target.closest && e.target.closest("th[data-sort]"); if(th) th.click(); const tr = e.target.matches && e.target.matches("tbody tr[data-sym]") ? e.target : null; if(tr) openDrawer(tr.dataset.sym); }
+});
+$("#btnClearSec").onclick = () => { S.sec="ALL"; renderSectors(); renderTable(); };
+$("#minScore").oninput = e => { S.min = +e.target.value; $("#minScoreV").textContent = S.min; renderTable(); };
+$("#favOnly").onchange = e => { S.favOnly = e.target.checked; renderTable(); };
+$("#q").oninput = e => { S.q = e.target.value.trim(); renderTable(); };
+$("#btnLoad").onclick = () => { $("#loadErr").textContent=""; openModal("#mLoad"); };
+$("#btnSet").onclick = () => { buildSettings(); openModal("#mSet"); };
+$("#file").onchange = e => { const f = e.target.files[0]; if(!f) return; const fr = new FileReader(); fr.onload = () => { $("#taData").value = String(fr.result); }; fr.readAsText(f); };
+$("#btnApply").onclick = () => {
+  try{
+    const {data:d, skipped} = normalise($("#taData").value);
+    data = d; R = compute(data, cfg); S.sec="ALL"; renderAll(); closeAll();
+    if(skipped) $("#banner").innerHTML += ` <b>${skipped} row(s) skipped</b> for missing symbol, sector or prev_close.`;
+  }catch(err){ $("#loadErr").textContent = "Could not load: "+err.message; }
+};
+$("#btnSample").onclick = () => { data = makeSample(); R = compute(data, cfg); S.sec="ALL"; renderAll(); closeAll(); };
+$("#mSet").addEventListener("input", e => {
+  const i = e.target; if(!i.dataset.g) return;
+  const v = parseFloat(i.value); if(!isFinite(v) || v<0) return;
+  cfg[i.dataset.g][i.dataset.k] = v; saveCfg(); R = compute(data, cfg); renderAll();
+});
+$("#btnReset").onclick = () => { cfg = clone(DEFAULT_CFG); saveCfg(); buildSettings(); R = compute(data, cfg); renderAll(); };
+
+/* ---------- init ---------- */
+renderAll(); tick(); setInterval(tick, 1000);
+
+/* ---------- live Upstox feed (served by server.js) ---------- */
+function feed(c,t){ $("#feed").className="chip "+c; $("#feedTxt").textContent=t; }
+let lt=null;
+async function live(){
+  clearTimeout(lt);
+  try{
+    const r = await fetch("/api/snapshot",{credentials:"same-origin"}), j = await r.json();
+    if(!r.ok){ feed("off", j.error||"Feed unavailable"); return; }
+    if(j.loading){ feed("warn","Loading history "+j.done+"/"+j.total); lt=setTimeout(live,2500); return; }
+    data = normalise(JSON.stringify(j)).data; R = compute(data,cfg); S.sec="ALL"; renderAll();
+    feed("ok","Live: Upstox ("+j.auth+")");
+  }catch(e){ feed("off","Feed error: "+e.message); }
+}
+$("#btnLogin").onclick = () => { location.href="/auth/login"; };
+$("#btnRefresh").onclick = live;
+setInterval(()=>{ if(!document.hidden) live(); }, 60000);
+live();
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: fno-dashboard
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: DASHBOARD_PASSWORD
+        sync: false
+      - key: UPSTOX_ANALYTICS_TOKEN
+        sync: false
+      - key: UPSTOX_API_KEY
+        sync: false
+      - key: UPSTOX_API_SECRET
+        sync: false
+      - key: UPSTOX_REDIRECT_URI
+        sync: false
