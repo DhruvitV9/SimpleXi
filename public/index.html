@@ -190,10 +190,8 @@ footer{padding:0 18px 22px;color:var(--muted);font-size:12px;max-width:1100px}
   <div class="brand">Indian F&amp;O Market Intelligence<small>Pre-market sector and stock scoring</small></div>
   <span class="chip" id="phase"><span class="dot"></span><span id="phaseTxt">Market</span></span>
   <span class="chip mono" id="clock">--:--:-- IST</span>
-  <span class="chip warn" id="dataBadge"><span class="dot"></span><span id="dataTxt">Sample data</span></span>
-  <span class="chip off" id="feed"><span class="dot"></span><span id="feedTxt">Feed: not connected</span></span>
-  <button class="btn" id="btnRefresh">Refresh</button>
-  <button class="btn" id="btnLoad">Load data</button>
+  <span class="chip off" id="dataBadge"><span class="dot"></span><span id="dataTxt">No data yet</span></span>
+  <span class="chip off" id="feed"><span class="dot"></span><span id="feedTxt">Connecting to Upstox…</span></span>
   <button class="btn" id="btnSet">Scoring settings</button>
 </header>
 
@@ -245,37 +243,6 @@ footer{padding:0 18px 22px;color:var(--muted);font-size:12px;max-width:1100px}
 
 <aside class="drawer" id="drawer" aria-label="Stock detail" aria-hidden="true"></aside>
 
-<div class="modal" id="mLoad" role="dialog" aria-modal="true" aria-labelledby="mLoadH">
-  <div class="mh"><h3 id="mLoadH">Load pre-market data</h3><button class="btn small x" data-close>Close</button></div>
-  <div class="mb">
-    <p class="note" style="margin-top:0">Paste JSON or CSV from your backend or a data export, or choose a file. The page scores whatever you load; it never invents missing fields.</p>
-    <textarea id="taData" placeholder="Paste JSON or CSV here" aria-label="Pre-market data"></textarea>
-    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">
-      <input type="file" id="file" accept=".json,.csv,.txt" aria-label="Choose data file">
-      <button class="btn primary" id="btnApply">Score this data</button>
-      <button class="btn" id="btnSample">Use sample data</button>
-    </div>
-    <div class="err" id="loadErr" role="alert"></div>
-    <h4>Expected fields</h4>
-    <p class="note">Required: symbol, sector, prev_close. Everything else is optional; leave it empty (or omit it) when your source does not provide it.</p>
-    <pre>{
-  "as_of": "2026-09-30T09:07:00+05:30",
-  "source": "your backend / Upstox export",
-  "indices": [
-    {"name": "NIFTY 50", "prev_close": 24800.5, "price": 24862.1}
-  ],
-  "stocks": [
-    {"symbol": "HDFCBANK", "sector": "BANKING",
-     "prev_close": 1820.4, "pre_price": 1834.0,
-     "pre_volume": 152000, "avg_pre_volume": 98000,
-     "prev_change_pct": 1.1, "prev_oi_change_pct": 3.4,
-     "ema20": 1805.2, "ema50": 1790.7}
-  ]
-}</pre>
-    <p class="note">CSV uses the same stock field names as its header row. Index rows are only available in JSON; without an index, relative strength shows N/A.</p>
-  </div>
-</div>
-
 <div class="modal" id="mSet" role="dialog" aria-modal="true" aria-labelledby="mSetH">
   <div class="mh"><h3 id="mSetH">Scoring settings</h3><button class="btn small x" data-close>Close</button></div>
   <div class="mb">
@@ -308,48 +275,6 @@ let cfg = clone(DEFAULT_CFG);
 try{ const s = localStorage.getItem("fno_cfg_v1"); if(s){ const p = JSON.parse(s); for(const k of Object.keys(DEFAULT_CFG)) if(p[k]) Object.assign(cfg[k], p[k]); } }catch(e){}
 function saveCfg(){ try{ localStorage.setItem("fno_cfg_v1", JSON.stringify(cfg)); }catch(e){} }
 
-/* ---------- sample data (synthetic, clearly labelled) ---------- */
-const SECTOR_MAP = {
-  "BANKING":["HDFCBANK","ICICIBANK","SBIN","AXISBANK","KOTAKBANK","INDUSINDBK","BANKBARODA","PNB","FEDERALBNK","IDFCFIRSTB"],
-  "FINANCIAL SERVICES":["BAJFINANCE","BAJAJFINSV","CHOLAFIN","SBILIFE","HDFCLIFE","MUTHOOTFIN"],
-  "IT":["TCS","INFY","WIPRO","HCLTECH","TECHM","LTIM","COFORGE","PERSISTENT"],
-  "PHARMA":["SUNPHARMA","CIPLA","DRREDDY","DIVISLAB","LUPIN","AUROPHARMA"],
-  "AUTO":["MARUTI","M&M","ASHOKLEY","BAJAJ-AUTO","EICHERMOT","HEROMOTOCO","TVSMOTOR"],
-  "FMCG":["HINDUNILVR","ITC","NESTLEIND","BRITANNIA","DABUR","TATACONSUM"],
-  "METALS":["TATASTEEL","JSWSTEEL","HINDALCO","VEDL","JINDALSTEL","NMDC"],
-  "ENERGY":["RELIANCE","NTPC","POWERGRID","TATAPOWER"],
-  "OIL & GAS":["ONGC","BPCL","IOC","GAIL"],
-  "REALTY":["DLF","GODREJPROP","OBEROIRLTY","PRESTIGE"],
-  "TELECOM":["BHARTIARTL","IDEA"]
-};
-const TONE = {"BANKING":.85,"FINANCIAL SERVICES":.45,"IT":.7,"PHARMA":.1,"AUTO":.5,"FMCG":-.05,"METALS":-.9,"ENERGY":.2,"OIL & GAS":-.35,"REALTY":-.7,"TELECOM":-.25};
-function rng(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; let t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return((t^t>>>14)>>>0)/4294967296; }; }
-function makeSample(){
-  const r = rng(20260930), n = () => (r()+r()+r()-1.5)/0.75;
-  const stocks = []; let sumGap = 0, cnt = 0;
-  for(const [sec, syms] of Object.entries(SECTOR_MAP)){
-    for(const s of syms){
-      const base = Math.round(80 + r()*3200);
-      const gap = TONE[sec]*1.5 + n()*0.85;
-      const prev = base, pre = +(prev*(1+gap/100)).toFixed(2);
-      const ratio = Math.max(0.25, 1 + Math.abs(gap)*0.45 + n()*0.5);
-      const avgPre = Math.round(20000 + r()*180000);
-      const pchg = TONE[sec]*0.9 + n()*1.1;
-      const ochg = (pchg>0 ? 1 : -1)*(r()<.7?1:-1)*(1.2 + r()*5) + n();
-      const e20 = +(prev*(1 - TONE[sec]*0.012 + n()*0.008)).toFixed(2);
-      const e50 = +(e20*(1 - TONE[sec]*0.012 + n()*0.006)).toFixed(2);
-      const o = {symbol:s, sector:sec, prev_close:prev, pre_price:pre,
-        pre_volume: r()<.06 ? null : Math.round(avgPre*ratio), avg_pre_volume: avgPre,
-        prev_change_pct:+pchg.toFixed(2), prev_oi_change_pct: r()<.08 ? null : +ochg.toFixed(2),
-        ema20: e20, ema50: r()<.05 ? null : e50};
-      stocks.push(o); sumGap += gap; cnt++;
-    }
-  }
-  const mk = (name, base, mult) => ({name, prev_close:base, price:+(base*(1+ (sumGap/cnt)*mult/100)).toFixed(2)});
-  const idx = [mk("NIFTY 50",24800,0.55), mk("BANK NIFTY",53400,0.8), mk("FINNIFTY",26100,0.6),
-               {name:"INDIA VIX", prev_close:13.4, price:13.1}];
-  return {as_of:"Synthetic sample", source:"Synthetic sample", sample:true, indices:idx, stocks};
-}
 
 /* ---------- scoring engine (pure functions) ---------- */
 const clamp = (x,a,b) => Math.max(a, Math.min(b, x));
@@ -463,7 +388,7 @@ const cls = x => !isNum(x) ? "na" : x>0 ? "bull" : x<0 ? "bear" : "";
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch])); }
 
 /* ---------- state ---------- */
-let data = makeSample();
+let data = {as_of:"", source:"", indices:[], stocks:[]};
 let R = compute(data, cfg);
 const S = {sec:"ALL", sf:"ALL", df:"ALL", min:0, q:"", favOnly:false, sort:{k:"score", d:-1}, open:null};
 let favs = new Set();
@@ -472,14 +397,6 @@ const saveFavs = () => { try{ localStorage.setItem("fno_favs", JSON.stringify([.
 
 /* ---------- render ---------- */
 const $ = s => document.querySelector(s);
-function renderBadge(){
-  const b = $("#dataBadge"), t = $("#dataTxt");
-  if(data.sample){ b.className="chip warn"; t.textContent="Sample data (synthetic)"; }
-  else { b.className="chip info"; t.textContent="Imported data, as of "+(data.as_of||"unknown time"); }
-  $("#banner").innerHTML = data.sample
-    ? "<b>These numbers are synthetic.</b> The tickers are real but every price, volume and open-interest value on this screen is generated for layout and scoring demonstration. Use Load data to score your own pre-market export."
-    : "Scoring imported data"+(data.source?" from <b>"+esc(data.source)+"</b>":"")+". Server data refreshes every 60 seconds; for manual imports, freshness is whatever the source timestamp says.";
-}
 function renderIndices(){
   const el = $("#indices");
   if(!data.indices || !data.indices.length){ el.innerHTML = `<div class="idx"><div class="n">Indices</div><div class="g na">N/A: none supplied</div></div>`; return; }
@@ -697,19 +614,19 @@ document.addEventListener("keydown", e => {
 });
 $("#btnClearSec").onclick = () => { S.sec="ALL"; renderSectors(); renderTable(); };
 $("#minScore").oninput = e => { S.min = +e.target.value; $("#minScoreV").textContent = S.min; renderTable(); };
+function ist(iso){ return new Date(iso).toLocaleTimeString("en-IN",{timeZone:"Asia/Kolkata",hour12:false})+" IST"; }
+function renderBadge(){
+  const b=$("#dataBadge"), t=$("#dataTxt"), bn=$("#banner");
+  if(!data.stocks.length){ b.className="chip off"; t.textContent="No data yet"; bn.innerHTML="Waiting for the first Upstox snapshot. Nothing is shown until real data arrives."; return; }
+  b.className="chip info"; t.textContent="Upstox, as of "+ist(data.as_of);
+  const m=data.missing||[];
+  bn.innerHTML="Live Upstox data, refreshed every 10 seconds. Gap compares the latest price with the previous session close. Vol ratio is N/A because Upstox provides no pre-open volume history."
+    +" Scored "+data.stocks.length+(data.universe?" of "+data.universe:"")+" F&amp;O stocks."
+    +(m.length?" <b>No Upstox data for:</b> "+esc(m.slice(0,12).join(", ")+(m.length>12?" +"+(m.length-12)+" more":""))+".":"");
+}
 $("#favOnly").onchange = e => { S.favOnly = e.target.checked; renderTable(); };
 $("#q").oninput = e => { S.q = e.target.value.trim(); renderTable(); };
-$("#btnLoad").onclick = () => { $("#loadErr").textContent=""; openModal("#mLoad"); };
 $("#btnSet").onclick = () => { buildSettings(); openModal("#mSet"); };
-$("#file").onchange = e => { const f = e.target.files[0]; if(!f) return; const fr = new FileReader(); fr.onload = () => { $("#taData").value = String(fr.result); }; fr.readAsText(f); };
-$("#btnApply").onclick = () => {
-  try{
-    const {data:d, skipped} = normalise($("#taData").value);
-    data = d; R = compute(data, cfg); S.sec="ALL"; renderAll(); closeAll();
-    if(skipped) $("#banner").innerHTML += ` <b>${skipped} row(s) skipped</b> for missing symbol, sector or prev_close.`;
-  }catch(err){ $("#loadErr").textContent = "Could not load: "+err.message; }
-};
-$("#btnSample").onclick = () => { data = makeSample(); R = compute(data, cfg); S.sec="ALL"; renderAll(); closeAll(); };
 $("#mSet").addEventListener("input", e => {
   const i = e.target; if(!i.dataset.g) return;
   const v = parseFloat(i.value); if(!isFinite(v) || v<0) return;
@@ -726,15 +643,18 @@ let lt=null;
 async function live(){
   clearTimeout(lt);
   try{
-    const r = await fetch("/api/snapshot",{credentials:"same-origin"}), j = await r.json();
-    if(!r.ok){ feed("off", j.error||"Feed unavailable"); return; }
+    const r = await fetch("/api/snapshot",{credentials:"same-origin",cache:"no-store"}), j = await r.json();
+    if(!r.ok) throw new Error(j.error||"Feed unavailable");
     if(j.loading){ feed("warn","Loading history "+j.done+"/"+j.total); lt=setTimeout(live,2500); return; }
-    data = normalise(JSON.stringify(j)).data; R = compute(data,cfg); S.sec="ALL"; renderAll();
-    feed("ok","Live: Upstox ("+j.auth+")");
-  }catch(e){ feed("off","Feed error: "+e.message); }
+    data = normalise(JSON.stringify(j)).data; data.missing = j.missing||[]; data.universe = j.universe;
+    R = compute(data,cfg); renderAll(); feed("ok","Live: Upstox");
+  }catch(e){
+    feed("off", e.message);
+    if(data.stocks.length){ $("#dataBadge").className="chip warn"; $("#dataTxt").textContent="STALE: last update "+ist(data.as_of); }
+  }
 }
-$("#btnRefresh").onclick = live;
-setInterval(()=>{ if(!document.hidden) live(); }, 60000);
+setInterval(()=>{ if(!document.hidden) live(); }, 10000);
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) live(); });
 live();
 </script>
 </body>
