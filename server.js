@@ -101,22 +101,28 @@ function startDaily() {
   D.busy = (async () => {
     const keys = [...IDX.map(x => x[1]), ...Object.values(INST).flatMap(x => [x.eq, x.fut])], out = {};
     D.total = keys.length; D.done = 0; D.err = '';
-    await pool(keys, 6, async k => { try { out[k] = await candles(k); } catch (e) { D.err = e.message; } D.done++; });
+    const go = async k => { try { out[k] = await candles(k); } catch (e) { D.err = e.message; console.warn('candles', k, e.message); } };
+    await pool(keys, 6, async k => { await go(k); D.done++; });
+    await sleep(2000); await pool(keys.filter(k => !out[k]), 3, go); // one retry pass for anything that failed
     if (Object.keys(out).length > keys.length / 2) { D.data = out; D.day = day; D.err = ''; }
   })().catch(e => { D.err = e.message; }).finally(() => { D.busy = null; });
 }
 const ema = (a, n) => { if (a.length < n) return null; const k = 2 / (n + 1); let e = a[0]; for (let i = 1; i < a.length; i++) e = a[i] * k + e * (1 - k); return +e.toFixed(2); };
 const fail = (m, code) => Object.assign(new Error(m), { code });
 
+let QC = { t: 0, v: null }; // quote cache, 5 s, protects Upstox rate limits
 async function snapshot() {
   if (!token()) throw fail('Feed: not connected. Set UPSTOX_ANALYTICS_TOKEN in the Render environment.', 503);
   await ensureInst(); startDaily();
   if (D.busy) return { loading: true, done: D.done, total: D.total };
   if (D.day !== istDay()) throw fail('History load failed: ' + (D.err || 'unknown') + ' (check the token)', 502);
-  const keys = [...IDX.map(x => x[1]), ...Object.values(INST).map(x => x.eq)], byTok = {};
-  for (let i = 0; i < keys.length; i += 400) {
-    const q = await up('/v3/market-quote/quotes?instrument_key=' + encodeURIComponent(keys.slice(i, i + 400).join(',')));
-    for (const v of Object.values(q.data || {})) byTok[v.instrument_token] = v;
+  const keys = [...IDX.map(x => x[1]), ...Object.values(INST).map(x => x.eq)], fresh = QC.v && Date.now() - QC.t < 5000, byTok = fresh ? QC.v : {};
+  if (!fresh) {
+    for (let i = 0; i < keys.length; i += 400) {
+      const q = await up('/v3/market-quote/quotes?instrument_key=' + encodeURIComponent(keys.slice(i, i + 400).join(',')));
+      for (const v of Object.values(q.data || {})) byTok[v.instrument_token] = v;
+    }
+    QC = { t: Date.now(), v: byTok };
   }
   const stocks = Object.entries(INST).map(([sym, x]) => {
     const e = D.data[x.eq], f = D.data[x.fut], q = byTok[x.eq];
@@ -128,8 +134,13 @@ async function snapshot() {
       prev_oi_change_pct: m > 1 && o[m - 2] > 0 ? (o[m - 1] - o[m - 2]) / o[m - 2] * 100 : null,
       ema20: ema(c, 20), ema50: ema(c, 50) };
   }).filter(Boolean);
-  const indices = IDX.map(([name, k]) => ({ name, prev_close: D.data[k] && D.data[k].close.slice(-1)[0], price: byTok[k] && byTok[k].last_price }));
-  return { as_of: new Date().toISOString(), source: 'Upstox (' + mode() + ')', auth: mode(), indices, stocks };
+  const indices = IDX.map(([name, k]) => {
+    const q = byTok[k] || {}, c = D.data[k]; let pc = c && c.close.length ? c.close[c.close.length - 1] : null;
+    if (pc == null && typeof q.net_change === 'number' && typeof q.last_price === 'number') pc = +(q.last_price - q.net_change).toFixed(2); // fallback if index history is unavailable
+    return { name, prev_close: pc, price: q.last_price };
+  });
+  const have = new Set(stocks.map(x => x.symbol)), missing = Object.keys(INST).filter(x => !have.has(x));
+  return { as_of: new Date(QC.t).toISOString(), source: 'Upstox (' + mode() + ')', auth: mode(), indices, stocks, universe: Object.keys(INST).length, missing };
 }
 
 /* ---------- http ---------- */
