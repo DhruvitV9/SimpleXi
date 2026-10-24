@@ -42,15 +42,19 @@ function authed(req) { // optional HTTP basic auth for the whole site
 }
 
 /* ---------- Upstox helpers ---------- */
+// Upstox limits: 50 req/s, 500/min, 2000/30 min. All calls go through one pacer (~6-7/s) and back off hard on 429.
+let nextAt = 0;
+async function slot() { const now = Date.now(), t = Math.max(now, nextAt); nextAt = t + 150; if (t > now) await sleep(t - now); }
 async function up(p) {
-  for (let i = 0; i < 3; i++) {
+  const waits = [5000, 15000, 30000, 60000];
+  for (let i = 0; ; i++) {
+    await slot();
     const r = await fetch(API + p, { headers: { Authorization: 'Bearer ' + token(), Accept: 'application/json' } });
-    if (r.status === 429) { await sleep(1500 * (i + 1)); continue; }
+    if (r.status === 429) { if (i >= waits.length) throw new Error('Upstox rate limit hit'); nextAt = Math.max(nextAt, Date.now() + waits[i]); continue; }
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error((j.errors && j.errors[0] && j.errors[0].message) || 'Upstox HTTP ' + r.status);
     return j;
   }
-  throw new Error('Upstox rate limit hit');
 }
 function prevSession() { // weekends/holidays: latest weekday session, then one weekday earlier (exchange holidays not handled)
   const d = new Date(Date.now() + 19800000), wk = () => [0, 6].includes(d.getUTCDay());
@@ -89,7 +93,7 @@ function ensureInst() {
 }
 
 // Daily candles (close + OI) are fetched once per IST day and cached in memory.
-const D = { day: '', data: {}, done: 0, total: 0, busy: null, err: '' };
+const D = { day: '', data: {}, done: 0, total: 0, busy: null, err: '', last: 0, ok: false };
 async function candles(k) {
   const j = await up(`/v3/historical-candle/${encodeURIComponent(k)}/days/1/${prevSession()}/${istDay(-130)}`);
   const c = ((j.data && j.data.candles) || []).slice().sort((a, b) => a[0] < b[0] ? -1 : 1);
@@ -97,15 +101,14 @@ async function candles(k) {
 }
 function startDaily() {
   const day = istDay();
-  if (D.busy || D.day === day) return;
+  if (D.day !== day) { D.day = day; D.data = {}; D.ok = false; D.last = 0; }
+  const keys = [...IDX.map(x => x[1]), ...Object.values(INST).flatMap(x => [x.eq, x.fut])], need = keys.filter(k => !D.data[k]);
+  if (D.busy || !need.length || Date.now() - D.last < 90000) return; // only fetch what is missing, at most every 90 s
   D.busy = (async () => {
-    const keys = [...IDX.map(x => x[1]), ...Object.values(INST).flatMap(x => [x.eq, x.fut])], out = {};
-    D.total = keys.length; D.done = 0; D.err = '';
-    const go = async k => { try { out[k] = await candles(k); } catch (e) { D.err = e.message; console.warn('candles', k, e.message); } };
-    await pool(keys, 6, async k => { await go(k); D.done++; });
-    await sleep(2000); await pool(keys.filter(k => !out[k]), 3, go); // one retry pass for anything that failed
-    if (Object.keys(out).length > keys.length / 2) { D.data = out; D.day = day; D.err = ''; }
-  })().catch(e => { D.err = e.message; }).finally(() => { D.busy = null; });
+    D.total = need.length; D.done = 0;
+    await pool(need, 4, async k => { try { D.data[k] = await candles(k); } catch (e) { D.err = e.message; console.warn('candles', k, e.message); } D.done++; });
+    D.ok = Object.keys(D.data).length > keys.length / 2;
+  })().catch(e => { D.err = e.message; }).finally(() => { D.busy = null; D.last = Date.now(); });
 }
 const ema = (a, n) => { if (a.length < n) return null; const k = 2 / (n + 1); let e = a[0]; for (let i = 1; i < a.length; i++) e = a[i] * k + e * (1 - k); return +e.toFixed(2); };
 const fail = (m, code) => Object.assign(new Error(m), { code });
@@ -114,8 +117,8 @@ let QC = { t: 0, v: null }; // quote cache, 5 s, protects Upstox rate limits
 async function snapshot() {
   if (!token()) throw fail('Feed: not connected. Set UPSTOX_ANALYTICS_TOKEN in the Render environment.', 503);
   await ensureInst(); startDaily();
-  if (D.busy) return { loading: true, done: D.done, total: D.total };
-  if (D.day !== istDay()) throw fail('History load failed: ' + (D.err || 'unknown') + ' (check the token)', 502);
+  if (D.busy && !D.ok) return { loading: true, done: D.done, total: D.total };
+  if (!D.ok) throw fail('History not ready: ' + (D.err || 'waiting') + '. Retrying shortly.', 503);
   const keys = [...IDX.map(x => x[1]), ...Object.values(INST).map(x => x.eq)], fresh = QC.v && Date.now() - QC.t < 5000, byTok = fresh ? QC.v : {};
   if (!fresh) {
     for (let i = 0; i < keys.length; i += 400) {
