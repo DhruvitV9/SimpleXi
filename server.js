@@ -30,10 +30,8 @@ try { Object.assign(SECTOR_OF, JSON.parse(fs.readFileSync(path.join(__dirname, '
 const IDX = [['NIFTY 50', 'NSE_INDEX|Nifty 50'], ['BANK NIFTY', 'NSE_INDEX|Nifty Bank'], ['FINNIFTY', 'NSE_INDEX|Nifty Fin Service'], ['INDIA VIX', 'NSE_INDEX|India VIX']];
 
 /* ---------- auth ---------- */
-const login = { token: '', exp: 0, state: '' };
-const useLogin = () => login.token && Date.now() < login.exp;
-const token = () => useLogin() ? login.token : (E.UPSTOX_ANALYTICS_TOKEN || '');
-const mode = () => useLogin() ? 'login' : E.UPSTOX_ANALYTICS_TOKEN ? 'analytics token' : 'none';
+const token = () => E.UPSTOX_ANALYTICS_TOKEN || '';
+const mode = () => token() ? 'analytics token' : 'none';
 const sha = s => crypto.createHash('sha256').update(String(s)).digest();
 function authed(req) { // optional HTTP basic auth for the whole site
   if (!E.DASHBOARD_PASSWORD) return true;
@@ -53,6 +51,12 @@ async function up(p) {
     return j;
   }
   throw new Error('Upstox rate limit hit');
+}
+function prevSession() { // weekends/holidays: latest weekday session, then one weekday earlier (exchange holidays not handled)
+  const d = new Date(Date.now() + 19800000), wk = () => [0, 6].includes(d.getUTCDay());
+  while (wk()) d.setUTCDate(d.getUTCDate() - 1);
+  do d.setUTCDate(d.getUTCDate() - 1); while (wk());
+  return d.toISOString().slice(0, 10);
 }
 const istDay = (off = 0) => new Date(Date.now() + 19800000 + off * 864e5).toISOString().slice(0, 10);
 async function pool(items, n, fn) { let i = 0; await Promise.all(Array.from({ length: n }, async () => { while (i < items.length) await fn(items[i++]); })); }
@@ -87,7 +91,7 @@ function ensureInst() {
 // Daily candles (close + OI) are fetched once per IST day and cached in memory.
 const D = { day: '', data: {}, done: 0, total: 0, busy: null, err: '' };
 async function candles(k) {
-  const j = await up(`/v3/historical-candle/${encodeURIComponent(k)}/days/1/${istDay(-1)}/${istDay(-130)}`);
+  const j = await up(`/v3/historical-candle/${encodeURIComponent(k)}/days/1/${prevSession()}/${istDay(-130)}`);
   const c = ((j.data && j.data.candles) || []).slice().sort((a, b) => a[0] < b[0] ? -1 : 1);
   return { close: c.map(x => x[4]), oi: c.map(x => x[6]) };
 }
@@ -105,7 +109,7 @@ const ema = (a, n) => { if (a.length < n) return null; const k = 2 / (n + 1); le
 const fail = (m, code) => Object.assign(new Error(m), { code });
 
 async function snapshot() {
-  if (!token()) throw fail('Feed: not connected. Set UPSTOX_ANALYTICS_TOKEN or use Upstox login.', 503);
+  if (!token()) throw fail('Feed: not connected. Set UPSTOX_ANALYTICS_TOKEN in the Render environment.', 503);
   await ensureInst(); startDaily();
   if (D.busy) return { loading: true, done: D.done, total: D.total };
   if (D.day !== istDay()) throw fail('History load failed: ' + (D.err || 'unknown') + ' (check the token)', 502);
@@ -135,22 +139,6 @@ http.createServer(async (req, res) => {
     const u = new URL(req.url, 'http://x');
     if (u.pathname === '/healthz') return send(res, 200, 'ok', 'text/plain');
     if (!authed(req)) { res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="F&O dashboard"' }); return res.end(); }
-    if (u.pathname === '/auth/login') {
-      if (!E.UPSTOX_API_KEY || !E.UPSTOX_API_SECRET || !E.UPSTOX_REDIRECT_URI) return send(res, 400, 'Set UPSTOX_API_KEY, UPSTOX_API_SECRET and UPSTOX_REDIRECT_URI first.', 'text/plain');
-      login.state = crypto.randomBytes(12).toString('hex');
-      const q = new URLSearchParams({ response_type: 'code', client_id: E.UPSTOX_API_KEY, redirect_uri: E.UPSTOX_REDIRECT_URI, state: login.state });
-      res.writeHead(302, { Location: API + '/v2/login/authorization/dialog?' + q }); return res.end();
-    }
-    if (u.pathname === '/auth/callback') {
-      if (!login.state || u.searchParams.get('state') !== login.state) return send(res, 400, 'Bad login state', 'text/plain');
-      const r = await fetch(API + '/v2/login/authorization/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
-        body: new URLSearchParams({ code: u.searchParams.get('code') || '', client_id: E.UPSTOX_API_KEY, client_secret: E.UPSTOX_API_SECRET, redirect_uri: E.UPSTOX_REDIRECT_URI, grant_type: 'authorization_code' }) });
-      const j = await r.json().catch(() => ({}));
-      if (!j.access_token) return send(res, 400, 'Upstox login failed', 'text/plain');
-      login.token = j.access_token; login.state = '';
-      const d = new Date(); d.setUTCHours(22, 0, 0, 0); if (d <= Date.now()) d.setUTCDate(d.getUTCDate() + 1); login.exp = +d; // token dies 3:30 AM IST
-      D.day = ''; res.writeHead(302, { Location: '/' }); return res.end();
-    }
     if (u.pathname === '/api/snapshot') { try { return send(res, 200, await snapshot()); } catch (e) { return send(res, e.code || 502, { error: e.message }); } }
     if (u.pathname === '/') { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); return res.end(fs.readFileSync(path.join(__dirname, 'public', 'index.html'))); }
     send(res, 404, 'Not found', 'text/plain');
