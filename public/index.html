@@ -192,7 +192,6 @@ footer{padding:0 18px 22px;color:var(--muted);font-size:12px;max-width:1100px}
   <span class="chip mono" id="clock">--:--:-- IST</span>
   <span class="chip warn" id="dataBadge"><span class="dot"></span><span id="dataTxt">Sample data</span></span>
   <span class="chip off" id="feed"><span class="dot"></span><span id="feedTxt">Feed: not connected</span></span>
-  <button class="btn primary" id="btnLogin">Upstox login</button>
   <button class="btn" id="btnRefresh">Refresh</button>
   <button class="btn" id="btnLoad">Load data</button>
   <button class="btn" id="btnSet">Scoring settings</button>
@@ -734,7 +733,6 @@ async function live(){
     feed("ok","Live: Upstox ("+j.auth+")");
   }catch(e){ feed("off","Feed error: "+e.message); }
 }
-$("#btnLogin").onclick = () => { location.href="/auth/login"; };
 $("#btnRefresh").onclick = live;
 setInterval(()=>{ if(!document.hidden) live(); }, 60000);
 live();
